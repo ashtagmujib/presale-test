@@ -55,7 +55,9 @@
     <button onclick="sendSol()">Send 0.01 SOL</button>
   
     <div style="margin-top:2rem;">
-      <button onclick="sendUSDT()">Send 5 USDT (Solana)</button>
+      <label for="usdtAmount" style="display:block; margin-bottom:0.5rem; color:#fff;">Enter USDT Amount</label>
+<input id="usdtAmount" type="number" value="5" min="1" step="1" style="padding:0.5rem; border-radius:5px; width:200px;" />
+<button onclick="sendUSDT()">Send USDT via Wallet</button>
     </div>
 
     <div style="margin-top:3rem; font-size: 0.9rem; color: #fff;">
@@ -151,7 +153,7 @@
             fromTokenAccount,
             toTokenAccount,
             payer,
-            5 * 1e6, // 5 USDT (6 decimals)
+            parseFloat(document.getElementById('usdtAmount').value) * 1e6
             [],
             solanaWeb3.TOKEN_PROGRAM_ID
           )
