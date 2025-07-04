@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Charitok Wallet Connect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background: linear-gradient(to bottom right, #ffa500, #ffd700);
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: #fff;
+    }
+
+    button {
+      padding: 1rem 2rem;
+      margin: 1rem;
+      border: none;
+      border-radius: 6px;
+      background-color: #ff8800;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #ff9900;
+    }
+
+    #walletInfo {
+      margin-top: 2rem;
+      background: #fff3cd;
+      padding: 1rem;
+      border-radius: 6px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Connect Your Wallet</h1>
+  <button onclick="connectWallet()">Connect Wallet</button>
+  <button onclick="disconnectWallet()">Disconnect Wallet</button>
+
+  <div id="walletInfo">
+    <p><strong>Connected Wallet:</strong> <span id="walletAddress"></span></p>
+    <button onclick="sendSol()">Send 0.01 SOL</button>
+  
+    <div style="margin-top:2rem;">
+      <button onclick="sendUSDT()">Send 5 USDT (Solana)</button>
+    </div>
+
+    <div style="margin-top:3rem; font-size: 0.9rem; color: #fff;">
+      <em>Tip: Mobile users can use Phantom or Solflare browser inside the wallet app for best experience.</em>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@solana/web3.js@1.73.0/lib/index.iife.js"></script>
+  <script>
+    let provider = null;
+
+    async function getProvider() {
+      if ('solana' in window) {
+        const anyWindow = window;
+        const solana = anyWindow.solana;
+        if (solana.isPhantom || solana.isSolflare || solana.isBackpack) {
+          return solana;
+        }
+      }
+      window.open("https://phantom.app/", "_blank");
+    }
+
+    async function connectWallet() {
+      provider = await getProvider();
+      if (!provider) return;
+
+      try {
+        const resp = await provider.connect();
+        document.getElementById("walletAddress").innerText = resp.publicKey.toString();
+        document.getElementById("walletInfo").style.display = "block";
+      } catch (err) {
+        console.error("Connection failed", err);
+      }
+    }
+
+    async function disconnectWallet() {
+      if (provider) {
+        await provider.disconnect();
+        document.getElementById("walletInfo").style.display = "none";
+        document.getElementById("walletAddress").innerText = "";
+      }
+    }
+
+    async function sendSol() {
+      if (!provider) {
+        alert("Please connect your wallet first.");
+        return;
+      }
+
+      const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
+      const recipient = new solanaWeb3.PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
+      const lamports = 0.01 * solanaWeb3.LAMPORTS_PER_SOL;
+
+      const transaction = new solanaWeb3.Transaction().add(
+        solanaWeb3.SystemProgram.transfer({
+          fromPubkey: provider.publicKey,
+          toPubkey: recipient,
+          lamports,
+        })
+      );
+
+      transaction.feePayer = provider.publicKey;
+      const blockhash = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash.blockhash;
+
+      try {
+        const signed = await provider.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signed.serialize());
+        await connection.confirmTransaction(signature);
+        alert("SOL transaction successful: " + signature);
+      } catch (err) {
+        console.error("Transaction failed", err);
+        alert("Transaction failed. Check console for details.");
+      }
+    }
+  
+    async function sendUSDT() {
+      if (!provider) {
+        alert("Please connect your wallet first.");
+        return;
+      }
+
+      try {
+        const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
+        const usdtMint = new solanaWeb3.PublicKey("Es9vMFrzaCERZTqcVZzN3ogWm4EaaL4vHNVFZzLUzTLg");
+        const recipient = new solanaWeb3.PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
+        const payer = provider.publicKey;
+        const fromTokenAccount = await solanaWeb3.getAssociatedTokenAddress(usdtMint, payer);
+        const toTokenAccount = await solanaWeb3.getAssociatedTokenAddress(usdtMint, recipient);
+
+        const transaction = new solanaWeb3.Transaction().add(
+          solanaWeb3.createTransferInstruction(
+            fromTokenAccount,
+            toTokenAccount,
+            payer,
+            5 * 1e6, // 5 USDT (6 decimals)
+            [],
+            solanaWeb3.TOKEN_PROGRAM_ID
+          )
+        );
+
+        transaction.feePayer = payer;
+        const blockhash = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash.blockhash;
+
+        const signed = await provider.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signed.serialize());
+        await connection.confirmTransaction(signature);
+        alert("USDT transaction successful: " + signature);
+      } catch (err) {
+        console.error("USDT Transaction failed", err);
+        alert("USDT transaction failed. Check console for details.");
+      }
+    }
+  </script>
+</body>
+</html>
