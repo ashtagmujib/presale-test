@@ -1,159 +1,125 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Charitok Presale – $TOK</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(to bottom right, #FFA500, #FFD700);
-      color: #222;
-    }
-    header {
-      background: #ff8800;
-      color: white;
-      text-align: center;
-      padding: 2rem;
-    }
-    section {
-      max-width: 600px;
-      margin: 2rem auto;
-      background: #fffbe6;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
-    }
-    h2 {
-      color: #ff6600;
-      text-align: center;
-    }
-    label {
-      display: block;
-      margin: 1rem 0 0.5rem;
-    }
-    input {
-      width: 100%;
-      padding: 0.75rem;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-    button {
-      background: #ff8800;
-      color: white;
-      padding: 0.75rem 1.5rem;
-      border: none;
-      border-radius: 5px;
-      margin-top: 1rem;
-      cursor: pointer;
-    }
-    .info-box {
-      background: #fff0c4;
-      padding: 1rem;
-      border-radius: 5px;
-      margin-top: 2rem;
-    }
-    .address-box {
-      background: #fff;
-      border: 1px dashed #ff9900;
-      padding: 1rem;
-      word-break: break-word;
-      text-align: center;
-      border-radius: 5px;
-      margin-top: 0.5rem;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>$TOK Presale</h1>
-    <p>Be early. Be generous. Be part of the mission.</p>
-  </header>
+  <title>Charitok Presale</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <section>
-    <h2>Buy $TOK Now</h2>
+  <!-- Solana Wallet Adapter -->
+  <script type="module">
+    import {
+      Connection,
+      clusterApiUrl,
+      LAMPORTS_PER_SOL,
+      SystemProgram,
+      Transaction,
+      PublicKey
+    } from "https://cdn.skypack.dev/@solana/web3.js";
 
-    <div>
-      <label for="amount">Amount to Invest (in SOL)</label>
-      <input type="number" id="amount" placeholder="e.g. 1.5" min="0.01" step="0.01"/>
-      <button onclick="buyToken()">Buy via Wallet</button>
-    </div>
+    import {
+      WalletAdapterNetwork
+    } from "https://cdn.skypack.dev/@solana/wallet-adapter-base";
 
-    <div class="info-box">
-      <strong>Don't want to connect your wallet?</strong>
-      <p>You can also send SOL directly to the wallet below. Tokens will be manually sent to your address shortly after confirmation.</p>
-      <div class="address-box" id="manualAddress">
-        E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5
-      </div>
-    </div>
+    import {
+      WalletProvider
+    } from "https://cdn.skypack.dev/@solana/wallet-adapter-react";
 
-    <div class="info-box">
-      <strong>Presale Details:</strong>
-      <ul>
-        <li>1 SOL = 10,000 $TOK</li>
-        <li>Soft Cap: 500 SOL | Hard Cap: 2,000 SOL</li>
-        <li>Network: Solana Mainnet</li>
-        <li>Unsold tokens will be burned.</li>
-      </ul>
-    </div>
+    import {
+      getWallets
+    } from "https://cdn.skypack.dev/@solana/wallet-adapter-wallets";
 
-    <div class="info-box" style="background: #e0f8e0;">
-      <strong>Progress:</strong>
-      <progress id="progressBar" value="0" max="2000" style="width: 100%; height: 20px;"></progress>
-      <div id="progressLabel" style="text-align:center; margin-top: 0.5rem;">0 SOL Raised</div>
-    </div>
-  </section>
+    import {
+      WalletModalProvider,
+      WalletMultiButton
+    } from "https://cdn.skypack.dev/@solana/wallet-adapter-react-ui";
 
-  <script>
-    let totalRaised = 312; // Placeholder
-    document.getElementById("progressBar").value = totalRaised;
-    document.getElementById("progressLabel").innerText = `${totalRaised} SOL Raised`;
+    const network = WalletAdapterNetwork.Mainnet; // change to Devnet if testing
+    const connection = new Connection(clusterApiUrl(network));
 
-    async function buyToken() {
-      const amount = parseFloat(document.getElementById("amount").value);
-      if (!amount || amount <= 0) {
-        alert("Please enter a valid amount.");
-        return;
-      }
+    // Supported wallets
+    const wallets = getWallets({
+      network,
+      wallets: ['Phantom', 'Solflare', 'Backpack', 'Ledger']
+    });
 
-      if (!window.solana || !window.solana.isPhantom) {
-        alert("Phantom Wallet not detected. Please install it first.");
-        return;
-      }
+    let wallet = null;
+    let publicKey = null;
+    const receiverWallet = new PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
 
-      try {
-        const provider = window.solana;
-        await provider.connect();
+    window.addEventListener('load', async () => {
+      // Initialize dropdown with wallets
+      const select = document.getElementById("wallet-select");
+      wallets.forEach((w, i) => {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = w.name;
+        select.appendChild(option);
+      });
 
-        const recipient = "E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5";
-        const lamports = amount * 1e9;
+      // Wallet connect
+      document.getElementById("connect-btn").onclick = async () => {
+        const selectedWallet = wallets[select.value];
+        wallet = new selectedWallet();
+        await wallet.connect();
+        publicKey = wallet.publicKey;
+        document.getElementById("wallet-status").innerText = `Connected: ${publicKey.toString()}`;
+      };
 
-        const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
-        const transaction = new solanaWeb3.Transaction().add(
-          solanaWeb3.SystemProgram.transfer({
-            fromPubkey: provider.publicKey,
-            toPubkey: new solanaWeb3.PublicKey(recipient),
-            lamports: lamports,
+      // Wallet disconnect
+      document.getElementById("disconnect-btn").onclick = async () => {
+        if (wallet) {
+          await wallet.disconnect();
+          publicKey = null;
+          document.getElementById("wallet-status").innerText = `Disconnected`;
+        }
+      };
+
+      // Send Transaction
+      document.getElementById("send-btn").onclick = async () => {
+        const amountSol = parseFloat(document.getElementById("amount").value);
+        if (!wallet || !publicKey || !amountSol) {
+          alert("Connect your wallet and enter amount first");
+          return;
+        }
+
+        const transaction = new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey: publicKey,
+            toPubkey: receiverWallet,
+            lamports: amountSol * LAMPORTS_PER_SOL,
           })
         );
 
-        transaction.feePayer = provider.publicKey;
-        let blockhashObj = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhashObj.blockhash;
+        try {
+          const { blockhash } = await connection.getRecentBlockhash();
+          transaction.recentBlockhash = blockhash;
+          transaction.feePayer = publicKey;
 
-        const signed = await provider.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(signature);
-
-        alert("Transaction successful! TX Hash: " + signature);
-      } catch (error) {
-        console.error("Transaction failed:", error);
-        alert("Transaction failed. Check console for details.");
-      }
-    }
+          const signed = await wallet.signTransaction(transaction);
+          const sig = await connection.sendRawTransaction(signed.serialize());
+          await connection.confirmTransaction(sig);
+          alert("Transaction successful! Signature: " + sig);
+        } catch (err) {
+          console.error(err);
+          alert("Transaction failed: " + err.message);
+        }
+      };
+    });
   </script>
-  <script src="https://unpkg.com/@solana/web3.js@1.73.0/lib/index.iife.js"></script>
+</head>
+<body>
+  <h2>Charitok Presale Portal</h2>
+  <p id="wallet-status">Wallet not connected</p>
+
+  <select id="wallet-select">
+    <option selected disabled>Select Wallet</option>
+  </select>
+  <button id="connect-btn">Connect Wallet</button>
+  <button id="disconnect-btn">Disconnect</button>
+
+  <br><br>
+  <label for="amount">Amount in SOL:</label>
+  <input id="amount" type="number" min="0.01" step="0.01" placeholder="e.g. 0.5">
+  <button id="send-btn">Send Transaction</button>
 </body>
 </html>
