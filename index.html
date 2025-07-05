@@ -1,12 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Charitok Presale</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Charitok SOL Presale</title>
+  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.89.2/lib/index.iife.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b0c10;
+      color: #f8f8f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+    }
+    .container {
+      background: #1f1f1f;
+      border-radius: 16px;
+      padding: 30px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 0 10px #0ff;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+    }
+    input {
+      background: #2a2a2a;
+      color: #fff;
+    }
+    button {
+      background-color: #00ccff;
+      color: black;
+      cursor: pointer;
+    }
+    #warning {
+      color: red;
+      font-weight: bold;
+      text-align: center;
+      display: none;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Charitok (SOL) Presale</h2>
+    <p>Connect your wallet and invest in our mission.</p>
+
+    <button id="connectBtn">Connect Wallet</button>
+    <p id="walletAddress"></p>
+
+    <input type="number" id="solAmount" placeholder="Enter amount in SOL" />
+    <button id="buyBtn">Buy Presale</button>
+
+    <button id="disconnectBtn" style="display:none;">Disconnect Wallet</button>
+
+    <p id="status"></p>
+    <p id="warning">⚠️ Please open this site in a wallet dApp browser (like Phantom or Solflare).</p>
+  </div>
+
+  <script>
+    const { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } = window.solanaWeb3;
+    const receiver = new PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
+    const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+
+    let provider = null;
+    let walletPublicKey = null;
+
+    function getProvider() {
+      if (window.solana?.isPhantom || window.solana?.isSolflare || window.solana?.isBackpack) {
+        return window.solana;
+      }
+      return null;
+    }
+
+    function detectNativeBrowser() {
+      const ua = navigator.userAgent.toLowerCase();
+      const isDappBrowser = ua.includes("phantom") || ua.includes("solflare") || ua.includes("backpack");
+      if (!isDappBrowser) {
+        document.getElementById("warning").style.display = "block";
+      }
+    }
+
+    detectNativeBrowser();
+
+    document.getElementById("connectBtn").addEventListener("click", async () => {
+      provider = getProvider();
+      if (!provider) {
+        alert("No Solana wallet found. Please install Phantom or Solflare.");
+        return;
+      }
+      try {
+        const connectRes = await provider.connect();
+        walletPublicKey = provider.publicKey || connectRes.publicKey;
+        document.getElementById("walletAddress").innerText = `Connected: ${walletPublicKey.toString()}`;
+        document.getElementById("disconnectBtn").style.display = "inline-block";
+      } catch (err) {
+        console.error("Connection Error:", err);
+        alert("Wallet connection failed.");
+      }
+    });
+
+    document.getElementById("disconnectBtn").addEventListener("click", async () => {
+      if (provider?.disconnect) {
+        await provider.disconnect();
+        provider = null;
+        walletPublicKey = null;
+        document.getElementById("walletAddress").innerText = "";
+        document.getElementById("disconnectBtn").style.display = "none";
+      }
+    });
+
+    document.getElementById("buyBtn").addEventListener("click", async () => {
+      if (!provider || !walletPublicKey) {
+        alert("Please connect your wallet first.");
+        return;
+      }
+
+      const amount = parseFloat(document.getElementById("solAmount").value);
+      if (isNaN(amount) || amount <= 0) {
+        alert("Enter a valid SOL amount.");
+        return;
+      }
+
+      const lamports = amount * LAMPORTS_PER_SOL;
+      try {
+        const transaction = new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey: walletPublicKey,
+            toPubkey: receiver,
+            lamports
+          })
+        );
+
+        transaction.feePayer = walletPublicKey;
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+
+        const signedTx = await provider.signTransaction(transaction);
+        const rawTx = signedTx.serialize();
+        const txid = await connection.sendRawTransaction(rawTx);
+
+        await connection.confirmTransaction(txid);
+        document.getElementById("status").innerText = `✅ Transaction sent: ${txid}`;
+      } catch (err) {
+        console.error("Transaction Error:", err);
+        alert("Transaction failed. Please check your wallet or try again.");
+      }
+    });
+  </script>
+</body>
 </html>
