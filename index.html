@@ -72,14 +72,11 @@
     const connection = new Connection("https://api.mainnet-beta.solana.com");
 
     let provider = null;
+    let walletPublicKey = null;
 
     function getProvider() {
-      if (window.solana && window.solana.isSolflare) {
+      if (window.solana && (window.solana.isPhantom || window.solana.isSolflare)) {
         return window.solana;
-      } else if (window.solana && window.solana.isPhantom) {
-        return window.solana;
-      } else if (window.solana) {
-        return window.solana; // fallback for other Solana wallets
       }
       return null;
     }
@@ -102,11 +99,13 @@
       }
 
       try {
-        const resp = await provider.connect();
-        document.getElementById("walletAddress").innerText = `Connected: ${resp.publicKey.toString()}`;
+        await provider.connect();
+        walletPublicKey = provider.publicKey;
+        document.getElementById("walletAddress").innerText = `Connected: ${walletPublicKey.toString()}`;
         document.getElementById("disconnectBtn").style.display = "inline-block";
       } catch (err) {
         console.error("Connection Error:", err);
+        alert("Wallet connection failed.");
       }
     });
 
@@ -114,13 +113,14 @@
       if (provider && provider.disconnect) {
         await provider.disconnect();
         provider = null;
+        walletPublicKey = null;
         document.getElementById("walletAddress").innerText = "";
         document.getElementById("disconnectBtn").style.display = "none";
       }
     });
 
     document.getElementById("buyBtn").addEventListener("click", async () => {
-      if (!provider || !provider.publicKey) {
+      if (!provider || !walletPublicKey) {
         alert("Please connect your wallet first.");
         return;
       }
@@ -135,21 +135,20 @@
       try {
         const transaction = new Transaction().add(
           SystemProgram.transfer({
-            fromPubkey: provider.publicKey,
+            fromPubkey: walletPublicKey,
             toPubkey: receiver,
             lamports,
           })
         );
 
-        transaction.feePayer = provider.publicKey;
-        transaction.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
+        transaction.feePayer = walletPublicKey;
+        transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-        const signed = await provider.signTransaction(transaction);
-        const txid = await connection.sendRawTransaction(signed.serialize());
-        document.getElementById("status").innerText = `Transaction sent: ${txid}`;
+        const signed = await provider.signAndSendTransaction(transaction);
+        document.getElementById("status").innerText = `Transaction sent: ${signed}`;
       } catch (err) {
-        console.error(err);
-        alert("Transaction failed.");
+        console.error("Transaction Error:", err);
+        alert("Transaction failed. Please check your wallet for errors.");
       }
     });
   </script>
