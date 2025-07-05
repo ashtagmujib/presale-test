@@ -69,13 +69,13 @@
   <script>
     const { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } = solanaWeb3;
     const receiver = new PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
-    const connection = new Connection("https://api.mainnet-beta.solana.com");
+    const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
 
     let provider = null;
     let walletPublicKey = null;
 
     function getProvider() {
-      if (window.solana && (window.solana.isPhantom || window.solana.isSolflare)) {
+      if (window.solana?.isPhantom || window.solana?.isSolflare || window.solana?.isBackpack) {
         return window.solana;
       }
       return null;
@@ -97,10 +97,9 @@
         alert("No Solana wallet found. Please install Phantom or Solflare.");
         return;
       }
-
       try {
-        await provider.connect();
-        walletPublicKey = provider.publicKey;
+        const connectRes = await provider.connect();
+        walletPublicKey = provider.publicKey || connectRes.publicKey;
         document.getElementById("walletAddress").innerText = `Connected: ${walletPublicKey.toString()}`;
         document.getElementById("disconnectBtn").style.display = "inline-block";
       } catch (err) {
@@ -110,7 +109,7 @@
     });
 
     document.getElementById("disconnectBtn").addEventListener("click", async () => {
-      if (provider && provider.disconnect) {
+      if (provider?.disconnect) {
         await provider.disconnect();
         provider = null;
         walletPublicKey = null;
@@ -137,18 +136,23 @@
           SystemProgram.transfer({
             fromPubkey: walletPublicKey,
             toPubkey: receiver,
-            lamports,
+            lamports
           })
         );
 
         transaction.feePayer = walletPublicKey;
-        transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
 
-        const signed = await provider.signAndSendTransaction(transaction);
-        document.getElementById("status").innerText = `Transaction sent: ${signed}`;
+        const signedTx = await provider.signTransaction(transaction);
+        const rawTx = signedTx.serialize();
+        const txid = await connection.sendRawTransaction(rawTx);
+
+        await connection.confirmTransaction(txid);
+        document.getElementById("status").innerText = `✅ Transaction sent: ${txid}`;
       } catch (err) {
         console.error("Transaction Error:", err);
-        alert("Transaction failed. Please check your wallet for errors.");
+        alert("Transaction failed. Please check your wallet or try again.");
       }
     });
   </script>
