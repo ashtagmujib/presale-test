@@ -1,177 +1,145 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Charitok Wallet Connect</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Charitok Presale</title>
+  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/cjs/index.iife.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/cjs/index.iife.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/cjs/wallets.iife.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/cjs/core.iife.js"></script>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
-      margin: 0;
-      padding: 2rem;
-      background: linear-gradient(to bottom right, #ffa500, #ffd700);
-      color: #333;
+      font-family: Arial, sans-serif;
+      background: #0b0c10;
+      color: #f8f8f8;
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding: 40px;
     }
-
-    h1 {
+    .container {
+      background: #1f1f1f;
+      border-radius: 16px;
+      padding: 30px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 0 10px #0ff;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+    }
+    input {
+      background: #2a2a2a;
       color: #fff;
     }
-
     button {
-      padding: 1rem 2rem;
-      margin: 1rem;
-      border: none;
-      border-radius: 6px;
-      background-color: #ff8800;
-      color: white;
-      font-size: 1rem;
+      background-color: #00ccff;
+      color: black;
       cursor: pointer;
     }
-
-    button:hover {
-      background-color: #ff9900;
-    }
-
-    #walletInfo {
-      margin-top: 2rem;
-      background: #fff3cd;
-      padding: 1rem;
-      border-radius: 6px;
+    #warning {
+      color: red;
+      font-weight: bold;
+      text-align: center;
       display: none;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <h1>Connect Your Wallet</h1>
-  <button onclick="connectWallet()">Connect Wallet</button>
-  <button onclick="disconnectWallet()">Disconnect Wallet</button>
+  <div class="container">
+    <h2>Charitok (SOL) Presale</h2>
+    <p>Connect your wallet and invest in our mission.</p>
 
-  <div id="walletInfo">
-    <p><strong>Connected Wallet:</strong> <span id="walletAddress"></span></p>
-    <button onclick="sendSol()">Send 0.01 SOL</button>
-  
-    <div style="margin-top:2rem;">
-      <label for="usdtAmount" style="display:block; margin-bottom:0.5rem; color:#fff;">Enter USDT Amount</label>
-<input id="usdtAmount" type="number" value="5" min="1" step="1" style="padding:0.5rem; border-radius:5px; width:200px;" />
-<button onclick="sendUSDT()">Send USDT via Wallet</button>
-    </div>
+    <button id="connectBtn">Connect Wallet</button>
+    <p id="walletAddress"></p>
 
-    <div style="margin-top:3rem; font-size: 0.9rem; color: #fff;">
-      <em>Tip: Mobile users can use Phantom or Solflare browser inside the wallet app for best experience.</em>
-    </div>
+    <input type="number" id="solAmount" placeholder="Enter amount in SOL" />
+    <button id="buyBtn">Buy Presale</button>
+
+    <button id="disconnectBtn" style="display:none;">Disconnect Wallet</button>
+
+    <p id="status"></p>
+    <p id="warning">⚠️ Please open this site in a wallet dApp browser (like Phantom or Solflare).</p>
   </div>
 
-  <script src="https://unpkg.com/@solana/web3.js@1.73.0/lib/index.iife.js"></script>
   <script>
+    const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = solanaWeb3;
     let provider = null;
+    let publicKey = null;
 
-    async function getProvider() {
-      if ('solana' in window) {
-        const anyWindow = window;
-        const solana = anyWindow.solana;
-        if (solana.isPhantom || solana.isSolflare || solana.isBackpack) {
-          return solana;
-        }
+    const receiver = new PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
+
+    document.getElementById("connectBtn").addEventListener("click", async () => {
+      if (!window.solana || !window.solana.isPhantom) {
+        document.getElementById("warning").style.display = "block";
+        return;
       }
-      window.open("https://phantom.app/", "_blank");
-    }
-
-    async function connectWallet() {
-      provider = await getProvider();
-      if (!provider) return;
 
       try {
-        const resp = await provider.connect();
-        document.getElementById("walletAddress").innerText = resp.publicKey.toString();
-        document.getElementById("walletInfo").style.display = "block";
+        const resp = await window.solana.connect();
+        publicKey = resp.publicKey;
+        provider = window.solana;
+        document.getElementById("walletAddress").innerText = `Connected: ${publicKey.toString()}`;
+        document.getElementById("disconnectBtn").style.display = "inline-block";
       } catch (err) {
-        console.error("Connection failed", err);
+        console.error("Connection Error:", err);
       }
-    }
+    });
 
-    async function disconnectWallet() {
-      if (provider) {
+    document.getElementById("disconnectBtn").addEventListener("click", async () => {
+      if (provider && provider.disconnect) {
         await provider.disconnect();
-        document.getElementById("walletInfo").style.display = "none";
+        provider = null;
+        publicKey = null;
         document.getElementById("walletAddress").innerText = "";
+        document.getElementById("disconnectBtn").style.display = "none";
       }
-    }
+    });
 
-    async function sendSol() {
-      if (!provider) {
+    document.getElementById("buyBtn").addEventListener("click", async () => {
+      if (!provider || !publicKey) {
         alert("Please connect your wallet first.");
         return;
       }
 
-      const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
-      const recipient = new solanaWeb3.PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
-      const lamports = 0.01 * solanaWeb3.LAMPORTS_PER_SOL;
-
-      const transaction = new solanaWeb3.Transaction().add(
-        solanaWeb3.SystemProgram.transfer({
-          fromPubkey: provider.publicKey,
-          toPubkey: recipient,
-          lamports,
-        })
-      );
-
-      transaction.feePayer = provider.publicKey;
-      const blockhash = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash.blockhash;
-
-      try {
-        const signed = await provider.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(signature);
-        alert("SOL transaction successful: " + signature);
-      } catch (err) {
-        console.error("Transaction failed", err);
-        alert("Transaction failed. Check console for details.");
-      }
-    }
-  
-    async function sendUSDT() {
-      if (!provider) {
-        alert("Please connect your wallet first.");
+      const amountSOL = parseFloat(document.getElementById("solAmount").value);
+      if (isNaN(amountSOL) || amountSOL <= 0) {
+        alert("Enter a valid SOL amount.");
         return;
       }
 
-      try {
-        const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
-        const usdtMint = new solanaWeb3.PublicKey("Es9vMFrzaCERZTqcVZzN3ogWm4EaaL4vHNVFZzLUzTLg");
-        const recipient = new solanaWeb3.PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
-        const payer = provider.publicKey;
-        const fromTokenAccount = await solanaWeb3.getAssociatedTokenAddress(usdtMint, payer);
-        const toTokenAccount = await solanaWeb3.getAssociatedTokenAddress(usdtMint, recipient);
+      const connection = new Connection("https://api.mainnet-beta.solana.com");
+      const lamports = amountSOL * LAMPORTS_PER_SOL;
 
-        const transaction = new solanaWeb3.Transaction().add(
-          solanaWeb3.createTransferInstruction(
-            fromTokenAccount,
-            toTokenAccount,
-            payer,
-            parseFloat(document.getElementById('usdtAmount').value) * 1e6
-            [],
-            solanaWeb3.TOKEN_PROGRAM_ID
-          )
+      try {
+        const transaction = new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey: publicKey,
+            toPubkey: receiver,
+            lamports: lamports,
+          })
         );
 
-        transaction.feePayer = payer;
-        const blockhash = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash.blockhash;
+        transaction.feePayer = publicKey;
+        const { blockhash } = await connection.getRecentBlockhash();
+        transaction.recentBlockhash = blockhash;
 
         const signed = await provider.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(signature);
-        alert("USDT transaction successful: " + signature);
+        const txid = await connection.sendRawTransaction(signed.serialize());
+        document.getElementById("status").innerText = `Transaction sent: ${txid}`;
       } catch (err) {
-        console.error("USDT Transaction failed", err);
-        alert("USDT transaction failed. Check console for details.");
+        console.error(err);
+        alert("Transaction failed.");
       }
-    }
+    });
   </script>
 </body>
 </html>
