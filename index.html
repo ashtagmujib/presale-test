@@ -3,12 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Charitok Presale</title>
+  <title>Charitok SOL Presale</title>
   <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
-  <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/cjs/index.iife.js"></script>
-  <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/cjs/index.iife.js"></script>
-  <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/cjs/wallets.iife.js"></script>
-  <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/cjs/core.iife.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter@latest/dist/wallet-adapter.umd.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -71,73 +68,84 @@
   </div>
 
   <script>
-    const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = solanaWeb3;
-    let provider = null;
-    let publicKey = null;
+    const receiver = new solanaWeb3.PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
+    const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
 
-    const receiver = new PublicKey("E4qdbjzM45hfXfqncuqwmxqU1GGJ3qs7TNuci7iSNgA5");
+    const wallets = [
+      new walletAdapter.PhantomWalletAdapter(),
+      new walletAdapter.SolflareWalletAdapter(),
+      new walletAdapter.BackpackWalletAdapter(),
+    ];
 
-    document.getElementById("connectBtn").addEventListener("click", async () => {
-      if (!window.solana || !window.solana.isPhantom) {
-        document.getElementById("warning").style.display = "block";
-        return;
+    const wallet = new walletAdapter.Wallet(wallets);
+
+    const connectBtn = document.getElementById("connectBtn");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const walletAddress = document.getElementById("walletAddress");
+    const status = document.getElementById("status");
+    const warning = document.getElementById("warning");
+
+    function detectNativeBrowser() {
+      const ua = navigator.userAgent.toLowerCase();
+      const isDappBrowser = ua.includes("phantom") || ua.includes("solflare") || ua.includes("backpack");
+      if (!isDappBrowser) {
+        warning.style.display = "block";
       }
+    }
 
+    detectNativeBrowser();
+
+    connectBtn.addEventListener("click", async () => {
       try {
-        const resp = await window.solana.connect();
-        publicKey = resp.publicKey;
-        provider = window.solana;
-        document.getElementById("walletAddress").innerText = `Connected: ${publicKey.toString()}`;
-        document.getElementById("disconnectBtn").style.display = "inline-block";
+        await wallet.connect();
+        walletAddress.innerText = `Connected: ${wallet.publicKey.toString()}`;
+        disconnectBtn.style.display = "inline-block";
       } catch (err) {
-        console.error("Connection Error:", err);
+        console.error("Wallet connection failed", err);
       }
     });
 
-    document.getElementById("disconnectBtn").addEventListener("click", async () => {
-      if (provider && provider.disconnect) {
-        await provider.disconnect();
-        provider = null;
-        publicKey = null;
-        document.getElementById("walletAddress").innerText = "";
-        document.getElementById("disconnectBtn").style.display = "none";
+    disconnectBtn.addEventListener("click", async () => {
+      try {
+        await wallet.disconnect();
+        walletAddress.innerText = "";
+        disconnectBtn.style.display = "none";
+      } catch (err) {
+        console.error("Disconnect failed", err);
       }
     });
 
     document.getElementById("buyBtn").addEventListener("click", async () => {
-      if (!provider || !publicKey) {
+      if (!wallet.connected) {
         alert("Please connect your wallet first.");
         return;
       }
 
-      const amountSOL = parseFloat(document.getElementById("solAmount").value);
-      if (isNaN(amountSOL) || amountSOL <= 0) {
+      const amount = parseFloat(document.getElementById("solAmount").value);
+      if (isNaN(amount) || amount <= 0) {
         alert("Enter a valid SOL amount.");
         return;
       }
 
-      const connection = new Connection("https://api.mainnet-beta.solana.com");
-      const lamports = amountSOL * LAMPORTS_PER_SOL;
-
+      const lamports = amount * solanaWeb3.LAMPORTS_PER_SOL;
       try {
-        const transaction = new Transaction().add(
-          SystemProgram.transfer({
-            fromPubkey: publicKey,
+        const tx = new solanaWeb3.Transaction().add(
+          solanaWeb3.SystemProgram.transfer({
+            fromPubkey: wallet.publicKey,
             toPubkey: receiver,
-            lamports: lamports,
+            lamports,
           })
         );
 
-        transaction.feePayer = publicKey;
-        const { blockhash } = await connection.getRecentBlockhash();
-        transaction.recentBlockhash = blockhash;
+        tx.feePayer = wallet.publicKey;
+        tx.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
 
-        const signed = await provider.signTransaction(transaction);
-        const txid = await connection.sendRawTransaction(signed.serialize());
-        document.getElementById("status").innerText = `Transaction sent: ${txid}`;
+        const signedTx = await wallet.signTransaction(tx);
+        const txId = await connection.sendRawTransaction(signedTx.serialize());
+        status.innerText = `Transaction sent! TX ID: ${txId}`;
       } catch (err) {
-        console.error(err);
-        alert("Transaction failed.");
+        console.error("Transaction failed", err);
+        alert("Transaction failed. Check console for details.");
       }
     });
   </script>
