@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Charitok SOL Presale</title>
 
-  <!-- Proper Buffer polyfill for browsers -->
+  <!-- Correct Buffer polyfill and global shim for web3.js in browser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/buffer.min.js"></script>
   <script>
-    window.Buffer = window.buffer.Buffer;
+    window.global = window;
+    window.Buffer = buffer.Buffer;
   </script>
 
   <!-- Solana web3.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.89.2/lib/index.iife.min.js"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.89.2/lib/index.iife.min.js"></script>
 
   <style>
     body {
@@ -155,9 +156,6 @@
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
 
-        console.log("walletPublicKey:", walletPublicKey.toString());
-        console.log("provider.signAndSendTransaction:", typeof provider.signAndSendTransaction);
-
         const txid = await provider.signAndSendTransaction(transaction);
         await connection.confirmTransaction(txid);
 
@@ -170,3 +168,4 @@
   </script>
 </body>
 </html>
+
