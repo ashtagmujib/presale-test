@@ -132,6 +132,8 @@
 
       const lamports = amount * LAMPORTS_PER_SOL;
       try {
+        await provider.connect();
+
         const transaction = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: walletPublicKey,
@@ -144,11 +146,12 @@
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
 
-        const signedTx = await provider.signTransaction(transaction);
-        const rawTx = signedTx.serialize();
-        const txid = await connection.sendRawTransaction(rawTx);
+        console.log("walletPublicKey:", walletPublicKey.toString());
+        console.log("provider.signAndSendTransaction:", typeof provider.signAndSendTransaction);
 
+        const txid = await provider.signAndSendTransaction(transaction);
         await connection.confirmTransaction(txid);
+
         document.getElementById("status").innerText = `✅ Transaction sent: ${txid}`;
       } catch (err) {
         console.error("Transaction Error:", err);
