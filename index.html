@@ -4,11 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Charitok SOL Presale</title>
-  <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
+
+  <!-- Proper Buffer polyfill for browsers -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/index.min.js"></script>
   <script>
     window.Buffer = buffer.Buffer;
   </script>
+
+  <!-- Solana web3.js -->
   <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.89.2/lib/index.iife.min.js"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
